@@ -1,0 +1,13 @@
+encryptionsalt: v1:RGhCrti/x6o=:v1:VFO6OWm69/0oYvkv:gk+nDuln7UGBBu8IV28+HmyUJ9R71Q==
+config:
+  aws:region: us-east-1
+  aws:profile: dev
+  vpc_name: vpc_01
+  vpc_cidr: 10.0.0.0
+  vpc_mask: 16
+  subnet_mask: 24
+  igw_name: igw
+  dest_cidr: 0.0.0.0
+  dest_mask: 0
+  public_route_name: publicRouteTable
+  private_route_name: privateRouteTable
