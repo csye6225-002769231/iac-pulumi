@@ -1,0 +1,20 @@
+{
+    "name": "iac-pulumi",
+    "main": "index.ts",
+    "devDependencies": {
+        "@types/node": "^16"
+    },
+    "dependencies": {
+        "@pulumi/aws": "^5.0.0",
+        "@pulumi/awsx": "^1.0.0",
+        "@pulumi/pulumi": "^3.0.0",
+        "aws-sdk": "^2.1472.0",
+        "cidr-js": "^2.3.1",
+        "ip": "^1.1.8",
+        "ip-subnet-calculator": "^1.1.8",
+        "netmask": "^2.0.2",
+        "range-iterable": "^3.0.1",
+        "subnet-cidr-calculator": "^1.0.12",
+        "vlsmcalc": "^0.0.8"
+    }
+}
