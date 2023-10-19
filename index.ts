@@ -89,7 +89,7 @@ availabilityZonesResult.apply(availabilityZones => {
                 subnetId: publicSubnet.id,
                 vpcSecurityGroupIds: [sg.id], // Reference the security group
                 // Enable EBS termination protection
-                keyName: 'ass5',
+                keyName: config.require('key-name'),
                 associatePublicIpAddress: true,
                 disableApiTermination: false,
                 rootBlockDevice: {
