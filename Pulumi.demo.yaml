@@ -1,7 +1,7 @@
 encryptionsalt: v1:6nshG3p6X8Q=:v1:0vZhDrNOmpdPbYC3:WsSFhgVd8tauAYwbvAs2KfzbZ+HT3w==
 config:
   aws:region: us-east-1
-  aws:profile: dev
+  aws:profile: demo
   vpc_name: vpc_01
   vpc_cidr: 10.0.0.0
   vpc_mask: 16
@@ -11,7 +11,8 @@ config:
   dest_mask: 0
   public_route_name: publicRouteTable
   private_route_name: privateRouteTable
-  ami: 'ami-01bdc6f6cd6f6c97b'
+  ami: 'ami-0bbba000c8ef0e153'
   instance_type: t2.micro
   instance_name: ec2Instance
   sg: my-security-group
+  key-name: ass5-demo
