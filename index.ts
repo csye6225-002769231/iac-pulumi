@@ -50,57 +50,6 @@ availabilityZonesResult.apply(availabilityZones => {
         cidr_block = cidr_block.next()
         publicSubnets.push(publicSubnet);
 
-        if (i == 0) {
-            const sg = new aws.ec2.SecurityGroup(config.require('sg'), {
-                vpcId: vpc.id,
-                ingress: [
-                    {
-                        protocol: "tcp",
-                        fromPort: 80,
-                        toPort: 80,
-                        cidrBlocks: [config.require('dest_cidr') + "/" + config.require('dest_mask')]
-                    },
-                    {
-                        protocol: "tcp",
-                        fromPort: 433,
-                        toPort: 433,
-                        cidrBlocks: [config.require('dest_cidr') + "/" + config.require('dest_mask')]
-                    },
-                    {
-                        protocol: "tcp",
-                        fromPort: 22,
-                        toPort: 22,
-                        cidrBlocks: [config.require('dest_cidr') + "/" + config.require('dest_mask')]
-                    },
-                    {
-                        protocol: "tcp",
-                        fromPort: 3000,
-                        toPort: 3000,
-                        cidrBlocks: [config.require('dest_cidr') + "/" + config.require('dest_mask')]
-                    }
-                ]
-            });
-
-
-
-            const ec2Instance = new aws.ec2.Instance(config.require('instance_name'), {
-                ami: config.require('ami'),
-                instanceType: config.require('instance_type'),
-                subnetId: publicSubnet.id,
-                vpcSecurityGroupIds: [sg.id], // Reference the security group
-                // Enable EBS termination protection
-                keyName: config.require('key-name'),
-                associatePublicIpAddress: true,
-                disableApiTermination: false,
-                rootBlockDevice: {
-                    volumeSize: 25, 
-                    volumeType: "gp2",
-                },  // Replace '0' with the index of the desired subnet
-            });
-        }
-
-
-
         new aws.ec2.RouteTableAssociation(`publicRouteTableAssociation-${i}`, {
             subnetId: publicSubnet.id,
             routeTableId: publicRouteTable.id,
@@ -121,59 +70,138 @@ availabilityZonesResult.apply(availabilityZones => {
             subnetId: privateSubnet.id,
             routeTableId: privateRouteTable.id,
         });
+        if (i == 1) {
+            const sg = new aws.ec2.SecurityGroup(config.require('sg'), {
+                vpcId: vpc.id,
+                ingress: [
+                    {
+                        protocol: "tcp",
+                        fromPort: 80,
+                        toPort: 80,
+                        cidrBlocks: [config.require('dest_cidr') + "/" + config.require('dest_mask')]
+                    },
+                    {
+                        protocol: "tcp",
+                        fromPort: 443,
+                        toPort: 443,
+                        cidrBlocks: [config.require('dest_cidr') + "/" + config.require('dest_mask')]
+                    },
+                    {
+                        protocol: "tcp",
+                        fromPort: 22,
+                        toPort: 22,
+                        cidrBlocks: [config.require('dest_cidr') + "/" + config.require('dest_mask')]
+                    },
+                    {
+                        protocol: "tcp",
+                        fromPort: 3000,
+                        toPort: 3000,
+                        cidrBlocks: [config.require('dest_cidr') + "/" + config.require('dest_mask')]
+                    }
+                ],
+                egress: [{
+                    fromPort: 5432,
+                    toPort: 5432,
+                    protocol: "tcp",
+                    cidrBlocks: [config.require('dest_cidr') + "/" + config.require('dest_mask')],
+
+                }],
+            });
+            const sg1 = new aws.ec2.SecurityGroup(config.require('sg1'), {
+                vpcId: vpc.id,
+                ingress: [
+                    {
+                        protocol: "tcp",
+                        fromPort: 5432,
+                        toPort: 5432,
+                        cidrBlocks: [config.require('dest_cidr') + "/" + config.require('dest_mask')],
+                        securityGroups: [sg.id]
+                    }]
+            })
 
 
+            const pgParameterGroup = new aws.rds.ParameterGroup("parameter-group", {
+                family: "postgres15",
+                description: "Parameter group for Postgres",
+                parameters: [{
+                    applyMethod: "pending-reboot",
+                    name: "rds.force_ssl",
+                    value: "0"
+                }]
+            })
 
+            const Subnetgroup = new aws.rds.SubnetGroup("subnet-group", {
+                subnetIds: [privateSubnets[0].id, privateSubnets[1].id],
+            })
+
+            const RDSInstance = new aws.rds.Instance("csye6225", {
+                allocatedStorage: 20,
+                engine: "postgres",
+                engineVersion: "15.4", 
+                instanceClass: "db.t3.micro",
+                multiAz: false,
+                parameterGroupName: pgParameterGroup.name,
+                username: config.require('username'),
+                password: config.require('password'),
+                dbName: config.require('database'),
+                dbSubnetGroupName: Subnetgroup.name,
+                publiclyAccessible: false,
+                skipFinalSnapshot: true, 
+                vpcSecurityGroupIds: [sg1.id],
+            });
+
+            const ami_id = pulumi.output(aws.ec2.getAmi({
+                executableUsers: ["self"],
+                filters: [
+                    {
+                        name: "name",
+                        values: ["csye6225-ami-*"],
+                    },
+                    {
+                        name: "root-device-type",
+                        values: ["ebs"],
+                    },
+                    {
+                        name: "virtualization-type",
+                        values: ["hvm"],
+                    },
+                ],
+                mostRecent: true,
+                nameRegex: "^csye6225-ami-\\d{3}",
+                owners: [config.require('aws_account_id')],
+            }))
+
+            const ec2Instance = new aws.ec2.Instance(config.require('instance_name'), {
+                ami: ami_id.id,
+                instanceType: config.require('instance_type'),
+                subnetId: publicSubnets[0].id,
+                vpcSecurityGroupIds: [sg.id],
+                keyName: config.require('key-name'),
+                associatePublicIpAddress: true,
+                disableApiTermination: false,
+                rootBlockDevice: {
+                    volumeSize: 25,
+                    volumeType: "gp2",
+                    deleteOnTermination: true,
+                },
+                userData: pulumi.interpolate`#!/bin/bash
+                    echo 'DATABASE_USER=${RDSInstance.username}' >> /etc/environment
+                    echo 'DATABASE_PASS=${RDSInstance.password}' >> /etc/environment
+                    echo 'DATABASE=${RDSInstance.dbName}' >> /etc/environment
+                    echo "DATABASE_HOST=${RDSInstance.address}" >> /etc/environment
+                    echo 'DATABASE_PORT=${config.require('port')}' >> /etc/environment
+                    echo 'DIALECT=${config.require('dialect')}' >> /etc/environment
+                    echo 'DEFAULTUSERSPATH=${config.require('defaultuserspath')}' >> /etc/environment
+                    echo 'NODE_PORT=${config.require('node')}' >> /etc/environment
+                `,
+            });
+        }
     });
 
 });
-
-
 new aws.ec2.Route("publicRoute", {
     routeTableId: publicRouteTable.id,
     destinationCidrBlock: config.require('dest_cidr') + "/" + config.require('dest_mask'),
     gatewayId: internetgateway.id,
 });
-
-// const sg = new aws.ec2.SecurityGroup("my-security-group", {
-//     vpcId: vpc.id,
-//     ingress: [
-//         {
-//             protocol: "tcp",
-//             fromPort: 80,
-//             toPort: 80,
-//             cidrBlocks: [config.require('dest_cidr') +"/" + config.require('dest_mask')]
-//         },
-//         {
-//             protocol: "tcp",
-//             fromPort: 433,
-//             toPort: 433,
-//             cidrBlocks: [config.require('dest_cidr') +"/" + config.require('dest_mask')]
-//         },
-//         {
-//             protocol: "tcp",
-//             fromPort: 22,
-//             toPort: 22,
-//             cidrBlocks: [config.require('dest_cidr') +"/" + config.require('dest_mask')]
-//         },
-//         {
-//             protocol: "tcp",
-//             fromPort: 3000,
-//             toPort: 3000,
-//             cidrBlocks: [config.require('dest_cidr') +"/" + config.require('dest_mask')]
-//         }
-//     ]
-// });
-
-// const ec2Instance = new aws.ec2.Instance("ec2Instance", {
-//     ami: 'ami-06db4d78cb1d3bbf9',
-//     instanceType: "t2.micro",
-//     subnetId: selectedPublicSubnetId,
-//     vpcSecurityGroupIds: [ sg.id ], // Reference the security group
-//     // Enable EBS termination protection
-//     rootBlockDevice: {
-//         deleteOnTermination: true,
-//     },  // Replace '0' with the index of the desired subnet
-// });
-
 
