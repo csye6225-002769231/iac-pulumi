@@ -114,7 +114,7 @@ availabilityZonesResult.apply(availabilityZones => {
                         protocol: "tcp",
                         fromPort: 5432,
                         toPort: 5432,
-                        cidrBlocks: [config.require('dest_cidr') + "/" + config.require('dest_mask')],
+                        // cidrBlocks: [config.require('dest_cidr') + "/" + config.require('dest_mask')],
                         securityGroups: [sg.id]
                     }]
             })
