@@ -11,12 +11,11 @@ config:
   dest_mask: 0
   public_route_name: publicRouteTable
   private_route_name: privateRouteTable
-  ami: 'ami-0e9dedb424ba8b1ca'
   instance_type: t2.micro
-  instance_name: ec2Instance
+  instance_name: csye6225_instance
   sg: my-security-group
   sg1: database
-  username: 'postgres'
+  username: 'csye6225'
   password: 'root1234'
   database: 'csye6225'
   defaultuserspath: '/opt/user.csv'
@@ -25,3 +24,6 @@ config:
   node: 3000
   aws_account_id: "241145584267"
   key-name: ass5-demo
+  name: demo.kshitijprabhu.me
+  zone: Z07920703J6PYQUTTKJOU
+
