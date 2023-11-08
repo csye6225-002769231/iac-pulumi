@@ -99,13 +99,20 @@ availabilityZonesResult.apply(availabilityZones => {
                         cidrBlocks: [config.require('dest_cidr') + "/" + config.require('dest_mask')]
                     }
                 ],
-                egress: [{
+                egress: [
+                    {
                     fromPort: 5432,
                     toPort: 5432,
                     protocol: "tcp",
                     cidrBlocks: [config.require('dest_cidr') + "/" + config.require('dest_mask')],
-
-                }],
+                    },
+                    {
+                        protocol: "tcp",
+                        fromPort: 443,
+                        toPort: 443,
+                        cidrBlocks: [config.require('dest_cidr') + "/" + config.require('dest_mask')]
+                    },
+                ],
             });
             const sg1 = new aws.ec2.SecurityGroup(config.require('sg1'), {
                 vpcId: vpc.id,
@@ -151,7 +158,6 @@ availabilityZonesResult.apply(availabilityZones => {
             });
 
             const ami_id = pulumi.output(aws.ec2.getAmi({
-                executableUsers: ["self"],
                 filters: [
                     {
                         name: "name",
@@ -167,9 +173,32 @@ availabilityZonesResult.apply(availabilityZones => {
                     },
                 ],
                 mostRecent: true,
-                nameRegex: "^csye6225-ami-\\d{3}",
                 owners: [config.require('aws_account_id')],
             }))
+
+            const role = new aws.iam.Role("role", {
+                assumeRolePolicy: JSON.stringify({
+                    "Version": "2012-10-17",
+                    "Statement": [{
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": "ec2.amazonaws.com"
+                        },
+                        "Action": "sts:AssumeRole",
+                    }],
+                }),
+            });
+            
+            // Attach the CloudWatchAgentServerAccess policy
+            new aws.iam.RolePolicyAttachment("rolePolicyAttachment", {
+                role: role.id,
+                policyArn: "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy",
+            });
+            
+            // Create IAM Instance Profile
+            const roleInstanceProfile = new aws.iam.InstanceProfile("roleInstanceProfile", {
+                role: role.name,
+            });
 
             const ec2Instance = new aws.ec2.Instance(config.require('instance_name'), {
                 ami: ami_id.id,
@@ -179,6 +208,7 @@ availabilityZonesResult.apply(availabilityZones => {
                 keyName: config.require('key-name'),
                 associatePublicIpAddress: true,
                 disableApiTermination: false,
+                iamInstanceProfile: roleInstanceProfile.name,
                 rootBlockDevice: {
                     volumeSize: 25,
                     volumeType: "gp2",
@@ -193,8 +223,20 @@ availabilityZonesResult.apply(availabilityZones => {
                     echo 'DIALECT=${config.require('dialect')}' >> /etc/environment
                     echo 'DEFAULTUSERSPATH=${config.require('defaultuserspath')}' >> /etc/environment
                     echo 'NODE_PORT=${config.require('node')}' >> /etc/environment
+                    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+                    -a fetch-config \
+                    -m ec2 \
+                    -c file:/opt/webapp/cloudwatch-config.json \
+                    -s
                 `,
             });
+            const record = new aws.route53.Record('my record', {
+                name: config.require('name'),
+                type: 'A',
+                ttl: 60,
+                records: [ec2Instance.publicIp],
+                zoneId: config.require('zone'),
+            })
         }
     });
 
