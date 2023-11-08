@@ -16,7 +16,7 @@ Before deploying this infrastructure, ensure you have the following prerequisite
 
 ## Getting Started
 
-Clone this repository to your local machine.
+Clone this repository to your localmachine.
 
 ```bash
 git clone https://github.com/yourusername/iac-pulumi.git
