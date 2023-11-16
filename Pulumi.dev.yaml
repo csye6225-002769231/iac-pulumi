@@ -1,28 +1,28 @@
-encryptionsalt: v1:RGhCrti/x6o=:v1:VFO6OWm69/0oYvkv:gk+nDuln7UGBBu8IV28+HmyUJ9R71Q==
+encryptionsalt: v1:+HbYrDtt7oM=:v1:Z/I5L7HKxAJ0X4PW:SNP16KmI1r+dqyVAnQ5QbLlfXJSfyw==
 config:
-  aws:region: us-east-1
   aws:profile: dev
-  vpc_name: vpc_01
-  vpc_cidr: 10.0.0.0
-  vpc_mask: 16
-  subnet_mask: 24
-  igw_name: igw
-  dest_cidr: 0.0.0.0
-  dest_mask: 0
-  public_route_name: publicRouteTable
-  private_route_name: privateRouteTable
-  instance_type: t2.micro
-  instance_name: csye6225_instance
-  sg: my-security-group
-  sg1: database
-  username: 'csye6225'
-  password: 'root1234'
-  database: 'csye6225'
-  defaultuserspath: '/opt/user.csv'
-  dialect: postgres
-  port: 5432
-  node: 3000
+  aws:region: us-east-1
   aws_account_id: "241145584267"
+  database: csye6225
+  defaultuserspath: /opt/user.csv
+  dest_cidr: 0.0.0.0
+  dest_mask: "0"
+  dialect: postgres
+  igw_name: igw
+  instance_name: csye6225_instance
+  instance_type: t2.micro
   key-name: ass5
   name: dev.kshitijprabhu.me
+  node: "3000"
+  password: root1234
+  port: "5432"
+  private_route_name: privateRouteTable
+  public_route_name: publicRouteTable
+  sg: my-security-group
+  sg1: database
+  subnet_mask: "24"
+  username: csye6225
+  vpc_cidr: 10.0.0.0
+  vpc_mask: "16"
+  vpc_name: vpc_01
   zone: Z0497242BCSVNXLV9E4O
