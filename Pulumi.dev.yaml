@@ -1,28 +1,34 @@
 encryptionsalt: v1:+HbYrDtt7oM=:v1:Z/I5L7HKxAJ0X4PW:SNP16KmI1r+dqyVAnQ5QbLlfXJSfyw==
 config:
-  aws:profile: dev
   aws:region: us-east-1
+  aws:profile: dev
+  gcp:project: devproject-405921
+  gcp_project: devproject-405921
   aws_account_id: "241145584267"
-  database: csye6225
-  defaultuserspath: /opt/user.csv
-  dest_cidr: 0.0.0.0
-  dest_mask: "0"
-  dialect: postgres
+  vpc_name: vpc_01
+  vpc_cidr: 10.0.0.0
+  vpc_mask: 16
+  subnet_mask: 24
   igw_name: igw
-  instance_name: csye6225_instance
-  instance_type: t2.micro
-  key-name: ass5
-  name: dev.kshitijprabhu.me
-  node: "3000"
-  password: root1234
-  port: "5432"
+  dest_cidr: 0.0.0.0
+  dest_mask: 0
   private_route_name: privateRouteTable
   public_route_name: publicRouteTable
+  instance_name: csye6225_instance
+  instance_type: t2.micro
   sg: my-security-group
   sg1: database
-  subnet_mask: "24"
-  username: csye6225
-  vpc_cidr: 10.0.0.0
-  vpc_mask: "16"
-  vpc_name: vpc_01
+  username: 'csye6225'
+  password: 'root1234'
+  database: 'csye6225'
+  defaultuserspath: '/opt/user.csv'
+  dialect: postgres
+  node: 3000
+  port: 5432
+  key-name: ass5
+  name: dev.kshitijprabhu.me
   zone: Z0497242BCSVNXLV9E4O
+  api_key: ce3c1e46c8081d48dde016154e4a247f-8c9e82ec-374e10c7
+  mailgun_domain: kshitijprabhu.me
+  sender_email: mailgun@kshitijprabhu.me
+  s3_bucket: webapp-kshitij1
