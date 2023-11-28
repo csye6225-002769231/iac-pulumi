@@ -2,6 +2,8 @@ encryptionsalt: v1:6nshG3p6X8Q=:v1:0vZhDrNOmpdPbYC3:WsSFhgVd8tauAYwbvAs2KfzbZ+HT
 config:
   aws:region: us-east-1
   aws:profile: demo
+  gcp:project: demoproject-405921
+  gcp_project: demoproject-405921
   vpc_name: vpc_01
   vpc_cidr: 10.0.0.0
   vpc_mask: 16
@@ -26,4 +28,7 @@ config:
   key-name: ass5-demo
   name: demo.kshitijprabhu.me
   zone: Z07920703J6PYQUTTKJOU
-
+  api_key: ce3c1e46c8081d48dde016154e4a247f-8c9e82ec-374e10c7
+  mailgun_domain: kshitijprabhu.me
+  sender_email: mailgun@kshitijprabhu.me
+  s3_bucket: webapp-kshitij

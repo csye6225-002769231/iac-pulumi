@@ -1,8 +1,32 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import * as netmask from "netmask";
+import * as gcp from "@pulumi/gcp";
 
 let config = new pulumi.Config();
+const currentStack = pulumi.getStack();
+
+// const user = new aws.iam.User("myUser", {});
+// const readOnlyPolicy = new aws.iam.Policy("myPolicy", {
+//     description: "Read-only policy for S3",
+//     policy: JSON.stringify({
+//         "Version": "2012-10-17",
+//         "Statement": [{
+//             "Effect": "Allow",
+//             "Action": [
+//                 "s3:Get*",
+//                 "s3:List*"
+//             ],
+//             "Resource": "*"
+//         }]
+//     }),
+// });
+// if (currentStack === "dev") {
+//     const policyAttachment = new aws.iam.UserPolicyAttachment("devPolicyAttachment", {
+//         user: user.name,
+//         policyArn: readOnlyPolicy.arn
+//     });
+// }
 
 const logGroup = new aws.cloudwatch.LogGroup("my-log-group", {
     name: "csye6225",
@@ -14,6 +38,49 @@ const logStream = new aws.cloudwatch.LogStream("my-log-stream", {
     logGroupName: logGroup.name,
 });
 
+const storageAdminPermissions = [
+    "storage.objects.create",
+];
+
+const storageRole = new gcp.projects.IAMCustomRole("storage-admin-role", {
+    roleId: `customrolestorageadmin${Date.now()}`,
+    title: "Storage Administrator",
+    description: "Access to Google Cloud Storage",
+    permissions: storageAdminPermissions,
+    project: config.require('gcp_project'), // Project ID is required here
+});
+
+
+
+
+const account = new gcp.serviceaccount.Account("my-account", {
+    accountId: "kshitij-demo-account",
+    displayName: "kshitij-demo-account",
+    project:config.require('gcp_project'),
+  });
+
+
+
+const serviceAccountIAMBinding = new gcp.projects.IAMBinding("iam-binding", {
+    project: config.require('gcp_project'),
+    role: storageRole.name,
+    members: [pulumi.interpolate`serviceAccount:${account.email}`],
+});
+
+const bucket = new gcp.storage.Bucket("my-bucket", {
+    location: "us-west1",
+    forceDestroy: true,
+    name: "webapp-bucket-csye6225"
+});
+
+const serviceAccountKey = new gcp.serviceaccount.Key("my-serviceAccountKey", {
+    serviceAccountId: account.name,
+});
+
+const creds = pulumi.all([serviceAccountKey.privateKey]).apply(([privateKey]) => {
+    return Buffer.from(privateKey, 'base64').toString();
+});
+
 
 const vpc = new aws.ec2.Vpc(config.require('vpc_name'), {
 
@@ -22,6 +89,8 @@ const vpc = new aws.ec2.Vpc(config.require('vpc_name'), {
     tags: { Name: config.require('vpc_name') },
 
 });
+
+
 
 const availabilityZones = pulumi.output(aws.getAvailabilityZones());
 
@@ -223,15 +292,87 @@ availabilityZonesResult.apply(availabilityZones => {
                 }),
             });
 
-            new aws.iam.RolePolicyAttachment("rolePolicyAttachment", {
+            new aws.iam.RolePolicyAttachment("cloudwatchRolePolicy", {
                 role: role.id,
                 policyArn: "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy",
+            });
+
+            new aws.iam.RolePolicyAttachment("snsRolePolicy", {
+                role: role.id,
+                policyArn: aws.iam.ManagedPolicies.AmazonSNSFullAccess,
             });
 
 
             const roleInstanceProfile = new aws.iam.InstanceProfile("roleInstanceProfile", {
                 role: role.name,
             });
+
+            const snsTopic = new aws.sns.Topic("webapp");
+
+            const lamdarole = new aws.iam.Role("myLambdaRole", {
+                assumeRolePolicy: aws.iam.assumeRolePolicyForPrincipal({ Service: "lambda.amazonaws.com" }),
+            });
+            
+            new aws.iam.RolePolicyAttachment("LambdaBasicExecutionRole", {
+                role: lamdarole,
+                policyArn: aws.iam.ManagedPolicies.AWSLambdaBasicExecutionRole,
+            });
+            
+            new aws.iam.RolePolicyAttachment("s3ObjectReadAccess", {
+                role: lamdarole,
+                policyArn: aws.iam.ManagedPolicies.AmazonS3ReadOnlyAccess,
+            });
+
+            new aws.iam.RolePolicyAttachment("dynamoDbAccess", {
+                role: lamdarole,
+                policyArn: aws.iam.ManagedPolicies.AmazonDynamoDBFullAccess,
+            });
+
+            const attributes = [
+                { name: "id", type: "S" },
+            ];
+
+            const dynamoTable = new aws.dynamodb.Table("webapp", {
+                name: 'webapp',
+                attributes,
+                hashKey: "id",
+                readCapacity: 20,
+                writeCapacity: 20,
+            });
+
+            const lambdaFunc = new aws.lambda.Function("webapp-lambda", {
+                name: "webapp-lambda",
+                s3Bucket: config.require('s3_bucket'),
+                s3Key: 'serverless.zip',
+                runtime: aws.lambda.Runtime.NodeJS18dX,
+                role: lamdarole.arn,
+                timeout: 60,
+                handler: "index.handler",
+                environment: {
+                    variables: {
+                        "gcp_cred": creds,
+                        "mailgun_domain": config.require("mailgun_domain"),
+                        "api_key":config.require("api_key"),
+                        "sender_email": config.require("sender_email"),
+                        "bucket_name": bucket.name,
+                        "dynamo_table": dynamoTable.name 
+                    }
+                }
+            });
+
+            let permission = new aws.lambda.Permission("snsPermission", {
+                action: "lambda:InvokeFunction",
+                function: lambdaFunc,
+                principal: "sns.amazonaws.com",
+                sourceArn: snsTopic.arn, 
+              });
+        
+
+            let subscription = new aws.sns.TopicSubscription("mySubscription", {
+                topic: snsTopic,
+                protocol: "lambda",
+                endpoint: lambdaFunc.arn,
+              });
 
             const userData = pulumi.interpolate`#!/bin/bash
 echo 'DATABASE_USER=${RDSInstance.username}' >> /etc/environment
@@ -242,6 +383,7 @@ echo 'DATABASE_PORT=${config.require('port')}' >> /etc/environment
 echo 'DIALECT=${config.require('dialect')}' >> /etc/environment
 echo 'DEFAULTUSERSPATH=${config.require('defaultuserspath')}' >> /etc/environment
 echo 'NODE_PORT=${config.require('node')}' >> /etc/environment
+echo 'TopicArn =${snsTopic.arn}' >> /etc/environment
 sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
 -a fetch-config \
 -m ec2 \
@@ -251,7 +393,7 @@ sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
 
             const asgLaunchConfig = new aws.ec2.LaunchTemplate("asgLaunchConfig", {
                 imageId: ami_id.id,
-                instanceType: "t2.micro",
+                instanceType: "t3.micro",
                 keyName: config.require('key-name'),
                 iamInstanceProfile: { name: roleInstanceProfile.name },
                 networkInterfaces:[
@@ -389,6 +531,8 @@ sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
                   evaluateTargetHealth: true,
                 }],    
               });
+
+
         }
     });
 
