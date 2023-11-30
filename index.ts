@@ -6,27 +6,7 @@ import * as gcp from "@pulumi/gcp";
 let config = new pulumi.Config();
 const currentStack = pulumi.getStack();
 
-// const user = new aws.iam.User("myUser", {});
-// const readOnlyPolicy = new aws.iam.Policy("myPolicy", {
-//     description: "Read-only policy for S3",
-//     policy: JSON.stringify({
-//         "Version": "2012-10-17",
-//         "Statement": [{
-//             "Effect": "Allow",
-//             "Action": [
-//                 "s3:Get*",
-//                 "s3:List*"
-//             ],
-//             "Resource": "*"
-//         }]
-//     }),
-// });
-// if (currentStack === "dev") {
-//     const policyAttachment = new aws.iam.UserPolicyAttachment("devPolicyAttachment", {
-//         user: user.name,
-//         policyArn: readOnlyPolicy.arn
-//     });
-// }
+
 
 const logGroup = new aws.cloudwatch.LogGroup("my-log-group", {
     name: "csye6225",
@@ -67,11 +47,19 @@ const serviceAccountIAMBinding = new gcp.projects.IAMBinding("iam-binding", {
     members: [pulumi.interpolate`serviceAccount:${account.email}`],
 });
 
+
+
 const bucket = new gcp.storage.Bucket("my-bucket", {
     location: "us-west1",
     forceDestroy: true,
     name: "webapp-bucket-csye6225"
 });
+
+// const binding = new gcp.storage.BucketIAMBinding("my-bucket-iam-binding", {
+//     bucket: bucket.name,
+//     role: "roles/storage.objectViewer",
+//     members: ["allUsers"]
+// });
 
 const serviceAccountKey = new gcp.serviceaccount.Key("my-serviceAccountKey", {
     serviceAccountId: account.name,
@@ -344,7 +332,7 @@ availabilityZonesResult.apply(availabilityZones => {
                 name: "webapp-lambda",
                 s3Bucket: config.require('s3_bucket'),
                 s3Key: 'serverless.zip',
-                runtime: aws.lambda.Runtime.NodeJS18dX,
+                runtime: aws.lambda.Runtime.NodeJS16dX,
                 role: lamdarole.arn,
                 timeout: 60,
                 handler: "index.handler",
@@ -495,6 +483,7 @@ sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
                 vpcId: vpc.id,
                 port: 3000, 
                 protocol: "HTTP",
+                deregistrationDelay: 60,
                 targetType: "instance",
                 healthCheck:{
                     enabled: true,
