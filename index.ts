@@ -380,6 +380,7 @@ sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
 `;
 
             const asgLaunchConfig = new aws.ec2.LaunchTemplate("asgLaunchConfig", {
+                name: "webapp-lc",
                 imageId: ami_id.id,
                 instanceType: "t3.micro",
                 keyName: config.require('key-name'),
@@ -407,11 +408,13 @@ sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
 
 
             const asg = new aws.autoscaling.Group("asg", {
+                name: "asg",
                 vpcZoneIdentifiers: publicSubnets.map(subnet => subnet.id),
                 desiredCapacity: 1,
                 maxSize: 3,
                 minSize: 1,
                 defaultCooldown: 60,
+                defaultInstanceWarmup: 60,
                 launchTemplate: {
                     id: asgLaunchConfig.id,
                     version: `$Latest`
@@ -494,13 +497,24 @@ sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
 
             });
 
-            const frontEndListener = new aws.lb.Listener("feListener", {
+            // const frontEndListener = new aws.lb.Listener("feListener", {
+            //     loadBalancerArn: applicationLoadBalancer.arn,
+            //     port: 80,
+            //     protocol: "HTTP",
+            //     defaultActions: [{ 
+            //         type: "forward",
+            //         targetGroupArn: targetGroup.arn 
+            //     }],
+            // });
+
+            const httpsListener = new aws.lb.Listener("certificate-listener", {
                 loadBalancerArn: applicationLoadBalancer.arn,
-                port: 80,
-                protocol: "HTTP",
-                defaultActions: [{ 
+                port: 443,
+                protocol: "HTTPS",
+                certificateArn: config.require('certificate'),
+                defaultActions: [{
                     type: "forward",
-                    targetGroupArn: targetGroup.arn 
+                    targetGroupArn: targetGroup.arn
                 }],
             });
 

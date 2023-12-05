@@ -32,3 +32,4 @@ config:
   mailgun_domain: kshitijprabhu.me
   sender_email: mailgun@kshitijprabhu.me
   s3_bucket: webapp-kshitij
+  certificate: arn:aws:acm:us-east-1:269080509846:certificate/b3969fb0-d606-49f1-ab12-89a146f959a1
